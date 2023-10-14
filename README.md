@@ -10,7 +10,7 @@ certinfo [OPTIONS] <DOMAIN>
 
 ### Options
 
-- `-d, --debug` : Enable debug mode.
+- `-d, --debug` : provide domain for which the certificate information is needed.
 - `-h, --help`  : Display help information.
 
 ### Example
