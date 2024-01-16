@@ -84,36 +84,36 @@ fn new_cert_data() {
     // Print information about each certificate in the chain
     for (index, cert) in server_cert_chain.iter().enumerate() {
         //let cert_pem = rustls::HandshakeType::Certificate
-        println!("{:?}", cert);
+        //println!("{:?}", cert);
         let res = X509Certificate::from_der(cert.as_ref());
         match res {
             Ok((rem, cert)) => {
                 assert!(rem.is_empty());
                 //
                 assert_eq!(cert.version(), X509Version::V3);
-                for (i, val) in cert.issuer().iter_common_name().enumerate() {
-                    //println!("{:?}", val.attr_value().data);
-                    let issuer_name = match std::str::from_utf8(&val.attr_value().data) {
-                        Ok(v) => v,
-                        Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-                    };
+                println!("{:?}", get_issuer_common_name(&cert));
+                println!("Valid From: {:?} -- Valid To: {:?}", cert.validity().not_before.to_datetime().date(),cert.validity().not_after.to_datetime().date());
                 
-                    println!("result: {}", issuer_name);
-                    println!();
-                }
                 
             },
             _ => panic!("x509 parsing failed: {:?}", res),
         }
-        // println!("Certificate #{}:", index + 1);
-        // println!("Subject: {}", cert.subject());
-        // println!("Issuer: {}", cert.issuer());
-        // println!("Not Before: {}", cert.validity().not_before);
-        // println!("Not After: {}", cert.validity().not_after);
-        // println!("Serial Number: {}", cert.serial_number());
         println!();
     }
 }
+
+fn get_issuer_common_name<'a>(cert: &'a X509Certificate<'a>) -> &'a str {
+    let mut issuer_name: &str = "";
+    for (i, val) in cert.issuer().iter_common_name().enumerate() {
+        //println!("{:?}", val.attr_value().data);
+        issuer_name = match std::str::from_utf8(&val.attr_value().data) {
+            Ok(v) => v,
+            Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+        };
+    }
+    issuer_name
+}
+
 
 fn get_certificate_data_for_domain(domain: &str) {
     // Connect to the server
