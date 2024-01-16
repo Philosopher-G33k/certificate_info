@@ -1,9 +1,9 @@
 mod config;
 
 use openssl::ssl::{SslConnector, SslMethod};
-use rustls::{ClientConfig, RootCertStore};
+use rustls::{ClientConfig, RootCertStore, SupportedCipherSuite};
 use std::{net::TcpStream, sync::Arc};
-
+use x509_parser::prelude::*;
 
 use std::io::{stdout, Read, Write};
 
@@ -42,7 +42,7 @@ fn new_cert_data() {
     let mut sock = TcpStream::connect("www.google.com:443").unwrap();
     let mut tls = rustls::Stream::new(&mut conn, &mut sock);
    
-    tls.write_all(
+    let tls_write_result = tls.write_all(
         concat!(
             "GET / HTTP/1.1\r\n",
             "Host: www.google.com\r\n",
@@ -51,18 +51,33 @@ fn new_cert_data() {
             "\r\n"
         )
         .as_bytes(),
-    )
-    .unwrap();
+    );
+
+    match tls_write_result {
+        Ok(_val) => println!("Success"),
+        Err(e) => println!("Error: {:?}", e),
+    }
+
     let ciphersuite = tls
         .conn
-        .negotiated_cipher_suite()
-        .unwrap();
-    writeln!(
-        &mut std::io::stderr(),
-        "Current ciphersuite: {:?}",
-        ciphersuite.suite()
-    )
-    .unwrap();
+        .negotiated_cipher_suite();
+        
+
+    match ciphersuite {
+        Some(cipher) => {
+            writeln!(
+                &mut std::io::stderr(),
+                "Current ciphersuite: {:?}",
+                cipher.suite()
+            )
+            .unwrap();
+            
+        },
+        None => {
+            println!("Unable to determine suite");
+        }
+    };
+    
 
 
     let server_cert_chain = conn.peer_certificates().unwrap();
@@ -70,6 +85,26 @@ fn new_cert_data() {
     for (index, cert) in server_cert_chain.iter().enumerate() {
         //let cert_pem = rustls::HandshakeType::Certificate
         println!("{:?}", cert);
+        let res = X509Certificate::from_der(cert.as_ref());
+        match res {
+            Ok((rem, cert)) => {
+                assert!(rem.is_empty());
+                //
+                assert_eq!(cert.version(), X509Version::V3);
+                for (i, val) in cert.issuer().iter_common_name().enumerate() {
+                    //println!("{:?}", val.attr_value().data);
+                    let issuer_name = match std::str::from_utf8(&val.attr_value().data) {
+                        Ok(v) => v,
+                        Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+                    };
+                
+                    println!("result: {}", issuer_name);
+                    println!();
+                }
+                
+            },
+            _ => panic!("x509 parsing failed: {:?}", res),
+        }
         // println!("Certificate #{}:", index + 1);
         // println!("Subject: {}", cert.subject());
         // println!("Issuer: {}", cert.issuer());
